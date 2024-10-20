@@ -1,3 +1,4 @@
 @ECHO OFF
 
-python arseny802_ollama.py update
+rem python bot_service_win.py update --startup auto
+python bot_service_win.py update

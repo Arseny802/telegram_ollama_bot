@@ -1,3 +1,3 @@
 @ECHO OFF
 
-python arseny802_ollama.py stop
+python bot_service_win.py stop
