@@ -1,0 +1,19 @@
+
+[Unit]
+Description=My Server
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=python {REPLACE_ME_WITH_PWD}/ollama_bot.py
+
+User=ubuntu
+
+Environment=ENV=production
+
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target
