@@ -15,8 +15,9 @@ Press Ctrl-C on the command line or send a signal to the process to stop the
 bot.
 """
 
-import asyncio
+import sys
 import json
+import time
 import os
 import logging
 import pathlib
@@ -38,20 +39,10 @@ class telegram_ollama_bot:
     _logger: logging.Logger
     token: str
 
-    def __init__(self):
-        self._enable_logging()
+    def __init__(self, log_dir_path = None):
+        self._enable_logging(log_dir_path)
         self._load_bot_info()
-
-        # Create the Application and pass it your bot's token.
-        self.application = Application.builder().token(self.token).build()
-
-        # on different commands - answer in Telegram
-        self.application.add_handler(CommandHandler("start", self.start))
-        self.application.add_handler(CommandHandler("help", self.help_command))
-
-        # on non command i.e message - echo the message on Telegram
-        self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.pass_to_ollama))
-
+        self._init_bot_handlers()
         self.client = ollama.Client()
 
 
@@ -79,10 +70,30 @@ class telegram_ollama_bot:
 
     def _load_bot_info(self):
         filepath = str(get_project_directory() / self.BOT_INFO_FILE)
+        if not os.path.exists(filepath):
+            self._logger.warning(f"Error! No bot info file found at {filepath}")
+            return
+        
         with open(filepath, 'r', encoding='utf-8') as reader:
             self._bot_info = json.load(reader)
+        
+        if self._bot_info is None or self._bot_info.get("token") is None:
+            self._logger.warning(f"Error! No bot token provided.")
+            return
+        
         self.token = self._bot_info["token"]
         self._logger.info(f"Bot token: {self.token}")
+
+    def _init_bot_handlers(self):
+        # Create the Application and pass it your bot's token.
+        self.application = Application.builder().token(self.token).build()
+
+        # on different commands - answer in Telegram
+        self.application.add_handler(CommandHandler("start", self.start))
+        self.application.add_handler(CommandHandler("help", self.help_command))
+
+        # on non command i.e message - echo the message on Telegram
+        self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.pass_to_ollama))
 
 
     # Define a few command handlers. These usually take the two arguments update and
@@ -113,7 +124,8 @@ class telegram_ollama_bot:
         prepare_message = "Готовлю ответ, подождите..."
         self._logger.info("User asked: %s", message)
         try:
-            response_coroutine = await update.message.reply_markdown(prepare_message, reply_to_message_id=update.message.message_id)
+            response_mesasge = await update.message.reply_markdown(
+                prepare_message, reply_to_message_id=update.message.message_id)
             response = self.client.generate(
                 model='gemma2:27b',
                 prompt=message,
@@ -131,18 +143,39 @@ class telegram_ollama_bot:
             full_answer_text = ""
             appended_text = ""
             counter = 0
+            last_wrote = 0
+            counter_max = 10
+            elapsed_time_max = 2
             for answer in response:
                 self._logger.info("Ollama answered: %s", answer)
                 answer_text = answer["response"]
                 counter += 1
 
                 appended_text += answer_text
-                if counter % 10 != 0 or not appended_text or not appended_text.strip() or not appended_text.rstrip():
+                if not appended_text or not appended_text.strip() or not appended_text.rstrip():
                     continue
+
+                if counter <= counter_max or time.time() - last_wrote < elapsed_time_max:
+                    continue
+
                 full_answer_text += appended_text
-                
-                await response_coroutine.edit_text(full_answer_text)
+                await response_mesasge.edit_text(full_answer_text)
+
                 appended_text = ""
+                counter = 0
+                last_wrote = time.time()
+                
+            full_answer_text += appended_text
+            try:
+                await update.message.reply_markdown(full_answer_text, reply_to_message_id=update.message.message_id)
+                await response_mesasge.delete()
+            except Exception as ex:
+                self._logger.error(ex)
+                if appended_text.strip() and appended_text.rstrip():
+                    await response_mesasge.edit_text(full_answer_text)
+                    self._logger.info("Edited previous message")
+            finally:
+                self._logger.info("Full answer: %s", full_answer_text)
         except Exception as e:
             self._logger.error(e)
             await update.message.reply_markdown("Sorry, I can't answer that :(")
@@ -163,9 +196,18 @@ class telegram_ollama_bot:
             self._logger.info("Shutting down...")
             self.application.stop_running()
 
+    def cleanup(self):
+        self.client.close()
+
+    def reload(self):
+        self._load_bot_info()
+        self._init_bot_handlers()
+
 
 if __name__ == "__main__":
-    bot = telegram_ollama_bot()
+    print("Run main with arguments: ", sys.argv)
+    log_path = get_project_directory() / "logs"
+    if len(sys.argv) > 1:
+        log_path = sys.argv[1]
+    bot = telegram_ollama_bot(log_path)
     bot.main()
-
-# set_wakeup_fd

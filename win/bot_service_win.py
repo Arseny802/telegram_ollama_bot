@@ -1,18 +1,14 @@
 #!/usr/bin/env python
 
-import sys
-if 'linux' in sys.platform:
-    import os
-elif 'windows' in sys.platform:
-    import win32serviceutil
-    import win32service
-    import win32event
-    import servicemanager
-else:
-    raise RuntimeError("Unsupported operating system: {}".format(sys.platform))
+import win32serviceutil
+import win32service
+import win32event
+import servicemanager
 
+import sys
 import socket
 import asyncio
+
 from ollama_bot import arseny802_ollama_bot
 
 
@@ -47,16 +43,10 @@ class AppServerSvc (win32serviceutil.ServiceFramework):
         self.ReportServiceStatus(win32service.SERVICE_STOPPED)
 
 
-def create_linux_daemon():
-    pass
+def run_service_command():
+    win32serviceutil.HandleCommandLine(AppServerSvc)
 
 
 if __name__ == '__main__':
-    if 'linux' in sys.platform:
-        create_linux_daemon()
-    elif 'windows' in sys.platform:
-        win32serviceutil.HandleCommandLine(AppServerSvc)
-    else:
-        raise RuntimeError("Unsupported operating system: {}".format(sys.platform))
-    
+    run_service_command()
     print('Done')
