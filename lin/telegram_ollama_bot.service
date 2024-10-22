@@ -2,14 +2,11 @@
 [Unit]
 Description=Telegram Ollama bot. See https://github.com/Arseny802/arseny802_ollama_bot
 After=network.target
-StartLimitIntervalSec=0
 
 [Service]
 Type=simple
 ExecStart=/home/arseny/python-venvs/ollama/bin/python REPLACE_ME_WITH_PWDollama_bot.py REPLACE_ME_WITH_LOG_DIR
-User=arseny
 Restart=always
-RestartSec=1
 StandardOutput=REPLACE_ME_WITH_LOG_DIRStandardOutput.log
 StandardError=REPLACE_ME_WITH_LOG_DIRStandardError.log
 

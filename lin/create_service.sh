@@ -12,7 +12,7 @@ fi
 if [ ! -d "/var/log/arseny802/" ]; then 
   sudo mkdir /var/log/arseny802/telegram_ollama_bot_service/
 fi
-sudo cp telegram_ollama_bot.service $service_path
+sudo cp ${current_dir}/telegram_ollama_bot.service $service_path
 
 sudo sed -i "s|REPLACE_ME_WITH_PWD|${current_dir}|g" $service_path
 sudo sed -i "s|REPLACE_ME_WITH_LOG_DIR|/var/log/arseny802/telegram_ollama_bot_service/|g" $service_path
