@@ -1,6 +1,6 @@
 
 [Unit]
-Description=Telegram Ollama bot. See https://github.com/Arseny802/ymsummorizer
+Description=Telegram Ollama bot. See https://github.com/Arseny802/arseny802_ollama_bot
 After=network.target
 StartLimitIntervalSec=0
 

@@ -46,13 +46,13 @@ class telegram_ollama_bot:
         self.client = ollama.Client()
 
 
-    def _enable_logging(self, dir_path: str = None):
+    def _enable_logging(self, dir_path: os.PathLike = None):
         if not dir_path:
             dir_path = get_project_directory() / "logs"
 
         if not os.path.exists(dir_path):
             os.mkdir(dir_path)
-        logs_path = str(dir_path / "telegram_ollama_bot.log")
+        logs_path = os.path.join(dir_path, "telegram_ollama_bot.log")
         print(f"Logs will be saved in {logs_path}")
 
         logging.basicConfig(
