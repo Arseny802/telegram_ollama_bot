@@ -30,7 +30,13 @@ from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandl
 from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackContext
 
 
-def get_project_directory():
+def get_project_directory():      
+    """
+    Returns the absolute path to the directory containing the current file.
+
+    This function resolves the parent directory of the current file (__file__)
+    and returns it as an absolute path using pathlib.
+    """
     return pathlib.Path(__file__).parent.resolve()
 
 
@@ -40,6 +46,16 @@ class telegram_ollama_bot:
     token: str
 
     def __init__(self, log_dir_path = None):
+        """
+        Initializes the bot.
+
+        This method enables logging, loads the bot information from a file,
+        initializes the bot handlers, and creates an instance of the OLLAMA API client.
+
+        :param log_dir_path: The directory path to save the logs in. If not provided,
+            the logs will be saved in the "logs" directory in the current working
+            directory.
+        """
         self._enable_logging(log_dir_path)
         self._load_bot_info()
         self._init_bot_handlers()
@@ -47,6 +63,24 @@ class telegram_ollama_bot:
 
 
     def _enable_logging(self, dir_path: os.PathLike = None):
+        """
+        Enables logging for the bot.
+
+        This method sets up the logging system for the bot. If `dir_path` is
+        not specified, the logs will be saved in the `logs` directory in the
+        same directory as the current file.
+
+        If the `dir_path` directory does not exist, it will be created.
+
+        The logs will be saved in a file named `telegram_ollama_bot.log` in
+        the specified directory.
+
+        The logging level is set to `INFO` by default, but you can change it
+        by modifying the `logging.basicConfig` call.
+
+        Note that the logging level for the `httpx` library is set to `WARNING`
+        to avoid logging all GET and POST requests.
+        """
         if not dir_path:
             dir_path = get_project_directory() / "logs"
 
@@ -69,6 +103,18 @@ class telegram_ollama_bot:
         self._logger = logging.getLogger(__name__)
 
     def _load_bot_info(self):
+        """
+        Loads bot info from a JSON file.
+
+        Loads bot info from a file at the path specified by `BOT_INFO_FILE`. The
+        file should contain a JSON object with a single key, "token", which is the
+        bot token.
+
+        If the file does not exist, or if the file does not contain the bot token,
+        a warning will be logged and the bot will not start.
+
+        :return: None
+        """
         filepath = str(get_project_directory() / self.BOT_INFO_FILE)
         if not os.path.exists(filepath):
             self._logger.warning(f"Error! No bot info file found at {filepath}")
@@ -85,6 +131,23 @@ class telegram_ollama_bot:
         self._logger.info(f"Bot token: {self.token}")
 
     def _init_bot_handlers(self):
+        """
+        Initialize the Telegram bot application and its handlers.
+
+        This method creates a Telegram bot application and sets up its handlers. The
+        handlers are responsible for responding to user commands and messages.
+
+        The following handlers are set up:
+        * CommandHandler for the /start command
+        * CommandHandler for the /help command
+        * MessageHandler for any non-command messages
+
+        The handlers are passed the `start` and `help_command` methods of this class
+        as their callback functions. The `pass_to_ollama` method is used as the callback
+        function for the MessageHandler.
+
+        :return: None
+        """
         # Create the Application and pass it your bot's token.
         self.application = Application.builder().token(self.token).build()
 
@@ -197,9 +260,24 @@ class telegram_ollama_bot:
             self.application.stop_running()
 
     def cleanup(self):
+        """
+        Clean up resources allocated by the bot.
+
+        This method closes the connection to the OLLAMA API and other resources
+        allocated by the bot. It is called when the bot is shut down.
+        """
         self.client.close()
 
     def reload(self):
+        """
+        Reload bot configuration from file.
+
+        This method reloads the bot configuration from the file specified
+        in `BOT_INFO_FILE`. It is used to reload the configuration when the
+        file changes without restarting the bot.
+
+        This method is a coroutine.
+        """
         self._load_bot_info()
         self._init_bot_handlers()
 

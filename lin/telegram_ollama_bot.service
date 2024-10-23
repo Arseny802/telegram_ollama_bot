@@ -7,8 +7,8 @@ After=network.target
 Type=simple
 ExecStart=/home/arseny/python-venvs/ollama/bin/python REPLACE_ME_WITH_PWDollama_bot.py REPLACE_ME_WITH_LOG_DIR
 Restart=always
-StandardOutput=REPLACE_ME_WITH_LOG_DIRStandardOutput.log
-StandardError=REPLACE_ME_WITH_LOG_DIRStandardError.log
+StandardOutput=append:REPLACE_ME_WITH_LOG_DIRoutput.log
+StandardError=append:REPLACE_ME_WITH_LOG_DIRoutput.log
 
 [Install]
 WantedBy=multi-user.target

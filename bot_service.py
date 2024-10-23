@@ -1,12 +1,10 @@
 #!/usr/bin/env python
 
 import sys
-from ollama_bot import telegram_ollama_bot
-
 if 'linux' in sys.platform:
-    import lin.bot_service_lin as bot_service
+    raise RuntimeError("Create service with shell script in 'lin' folder.")
 elif 'windows' in sys.platform:
-    import win.bot_service_win as bot_service
+    import bot_service_win as bot_service
 else:
     raise RuntimeError("Unsupported operating system: {}".format(sys.platform))
 
