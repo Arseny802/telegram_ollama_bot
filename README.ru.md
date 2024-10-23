@@ -10,7 +10,7 @@
 
 1. Клонируйте репозиторий: `git clone https://github.com/Arseny802/telegram_ollama_bot.git`
 2. Установите зависимости: `pip install -r requirements.txt`
-3. Создайте файл `config.py` с токеном бота: `TOKEN = 'your-token-here'`
+3. Создайте файл `bot_info.json` с токеном бота: `{"TOKEN": "your-token-here"}`
 4. Запустите бота: `python telegram_ollama_bot.py`
 
 ## Команды
