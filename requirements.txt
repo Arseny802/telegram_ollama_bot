@@ -1,0 +1,3 @@
+ollama==0.3.3
+python-telegram-bot==21.6
+servicemanager==2.0.10

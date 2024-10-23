@@ -9,7 +9,7 @@ import sys
 import socket
 import asyncio
 
-from ollama_bot import arseny802_ollama_bot
+from ollama_bot import telegram_ollama_bot
 
 
 class AppServerSvc (win32serviceutil.ServiceFramework):
