@@ -21,7 +21,7 @@ import time
 import os
 import logging
 import pathlib
-from threading import Thread
+import signal
 
 import ollama
 
@@ -246,18 +246,22 @@ class telegram_ollama_bot:
 
     def main(self) -> None:
         """Start the bot."""
-        try:
-            # Run the bot until the user presses Ctrl-C
-            self.application.run_polling(timeout=60, allowed_updates=Update.ALL_TYPES, stop_signals=None)
-            #thread = Thread(target = self.application.run_polling, daemon=True, kwargs={'allowed_updates': Update.ALL_TYPES})
-            #thread.start()
-        except KeyboardInterrupt:
-            pass
-        except Exception as e:
-            self._logger.error(e)
-        finally:
-            self._logger.info("Shutting down...")
-            self.application.stop_running()
+        while True:
+            self._logger.info("Starting the bot...")
+            try:
+                # Run the bot until the user presses Ctrl-C
+                self.application.run_polling(timeout=60, allowed_updates=Update.ALL_TYPES, stop_signals=[signal.SIGINT, signal.SIGTERM, signal.SIGABRT])
+            except KeyboardInterrupt:
+                self._logger.info("KeyboardInterrupt occurred. Passing it.")
+            except SystemExit as se:
+                self._logger.info("SystemExit: %s", se)
+                break
+            except Exception as e:
+                self._logger.error(e)
+            finally:
+                self._logger.info("Continue bot loop.")
+        self._logger.info("Shutting down...")
+        self.application.stop_running()
 
     def cleanup(self):
         """
