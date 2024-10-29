@@ -15,13 +15,14 @@ Press Ctrl-C on the command line or send a signal to the process to stop the
 bot.
 """
 
-import sys
-import json
-import time
 import os
-import logging
+import sys
+import time
+import json
 import pathlib
 import signal
+import logging
+import logging.handlers
 
 import ollama
 
@@ -29,6 +30,8 @@ from telegram import ForceReply, Update, Message
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackContext
 
+
+INTERRUPT_SIGNAL_OCCURED = False
 
 def get_project_directory():      
     """
@@ -38,6 +41,12 @@ def get_project_directory():
     and returns it as an absolute path using pathlib.
     """
     return pathlib.Path(__file__).parent.resolve()
+
+
+def create_log_formatter() -> logging.Formatter:
+    format = "[%(asctime)s] [%(name)s] [%(levelname)s] [%(funcName)s(%(lineno)d)]: %(message)s"
+    format_date = "%d-%m-%YT%H:%M:%S"
+    return logging.Formatter(format, format_date)
 
 
 class telegram_ollama_bot:
@@ -89,18 +98,27 @@ class telegram_ollama_bot:
         logs_path = os.path.join(dir_path, "telegram_ollama_bot.log")
         print(f"Logs will be saved in {logs_path}")
 
-        logging.basicConfig(
-            filename = logs_path,
-            format="[%(asctime)s] [%(name)s] [%(levelname)s]: %(message)s", 
-            level=logging.INFO,
-            #level=logging.DEBUG,
-            encoding="utf-8",
-            datefmt="%d-%m-%YT%H:%M:%S",
-        )
-        # set higher logging level for httpx to avoid all GET and POST requests being logged
-        logging.getLogger("httpx").setLevel(logging.WARNING)
 
-        self._logger = logging.getLogger(__name__)
+        max_size = 100 * 1024 * 1024 # 100 MB
+        file_handler = logging.handlers.RotatingFileHandler(
+            logs_path, mode='a', maxBytes=max_size, backupCount=10, encoding="UTF-8", delay=0)
+        file_handler.setFormatter(create_log_formatter())
+        file_handler.setLevel(logging.INFO)
+
+        root_log = logging.getLogger('telegram_ollama_bot')
+        root_log.setLevel(logging.INFO)
+        root_log.addHandler(file_handler)
+        root_log.removeHandler(sys.stdout)
+        root_log.removeHandler(sys.stderr)
+        
+        # set higher logging level for httpx to avoid all GET and POST requests being logged
+        log_httpx = logging.getLogger("httpx")
+        log_httpx.setLevel(logging.WARNING)
+        log_httpx.addHandler(file_handler)
+        log_httpx.removeHandler(sys.stdout)
+        log_httpx.removeHandler(sys.stderr)
+
+        self._logger = root_log
 
     def _load_bot_info(self):
         """
@@ -246,20 +264,11 @@ class telegram_ollama_bot:
 
     def main(self) -> None:
         """Start the bot."""
-        while True:
-            self._logger.info("Starting the bot...")
-            try:
-                # Run the bot until the user presses Ctrl-C
-                self.application.run_polling(timeout=60, allowed_updates=Update.ALL_TYPES, stop_signals=[signal.SIGINT, signal.SIGTERM, signal.SIGABRT])
-            except KeyboardInterrupt:
-                self._logger.info("KeyboardInterrupt occurred. Passing it.")
-            except SystemExit as se:
-                self._logger.info("SystemExit: %s", se)
-                break
-            except Exception as e:
-                self._logger.error(e)
-            finally:
-                self._logger.info("Continue bot loop.")
+        self._logger.info("Starting the bot...")
+        self.application.run_polling(
+            timeout=60, 
+            allowed_updates=Update.ALL_TYPES, 
+            stop_signals=[signal.SIGINT, signal.SIGTERM, signal.SIGABRT])
         self._logger.info("Shutting down...")
         self.application.stop_running()
 
@@ -285,11 +294,47 @@ class telegram_ollama_bot:
         self._load_bot_info()
         self._init_bot_handlers()
 
+def interrupt_handler(signum, frame):
+    logging.getLogger("main").info(f'Handling signal {signum} ({signal.Signals(signum).name}).')
+    INTERRUPT_SIGNAL_OCCURED = True
+    # do whatever...
+    time.sleep(1)
+
+def set_signal_handlers():
+    signal.signal(signal.SIGINT, interrupt_handler)
+    signal.signal(signal.SIGTERM, interrupt_handler)
+    signal.signal(signal.SIGABRT, interrupt_handler)
 
 if __name__ == "__main__":
     print("Run main with arguments: ", sys.argv)
     log_path = get_project_directory() / "logs"
     if len(sys.argv) > 1:
         log_path = sys.argv[1]
-    bot = telegram_ollama_bot(log_path)
-    bot.main()
+        
+    main_log = logging.getLogger("main")
+    main_log.setLevel(logging.INFO)
+    [h.setFormatter(create_log_formatter()) for h in main_log.handlers]
+
+    finish_ok = False
+    set_signal_handlers()
+    while not finish_ok:
+        main_log.info("Starting main...")
+        bot = telegram_ollama_bot(log_path)
+        try:
+            # Run the bot until the user presses Ctrl-C or SystemExit
+            bot.main()
+            finish_ok = True
+        except KeyboardInterrupt:
+            main_log.info("KeyboardInterrupt occurred. Passing it.")
+        except SystemExit as se:
+            main_log.warning("SystemExit: %s", se)
+            break
+        except Exception as e:
+            main_log.error(e)
+        finally:
+            if not INTERRUPT_SIGNAL_OCCURED and not finish_ok:
+                main_log.info("Continue bot loop.")
+                time.sleep(10)
+            else:
+                main_log.info("Exit bot loop.")
+                break
